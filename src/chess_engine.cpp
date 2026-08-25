@@ -67,6 +67,8 @@ int TRACE = 0;
 short pole[64];
 
 unsigned long timelimith = 1 * 60 * 1000;  //    (1 )
+/** Soft node budget; 0 = unlimited (time / depth caps only). */
+unsigned long nodelimith = 0;
 unsigned long starttime;
 
 int nullmove = 1;
@@ -2126,8 +2128,18 @@ int quiescence(int l, int alpha, int beta, int depthleft) {
 }
 
 //****************************
+static boolean search_budget_exceeded(void) {
+  if (halt) return true;
+  if (nodelimith != 0 && count >= nodelimith) {
+    halt = 1;
+    return true;
+  }
+  if (millis() - starttime > timelimith) return true;
+  return false;
+}
+
 boolean print_best(int dep) {
-  if (halt || millis() - starttime > timelimith) return false;
+  if (search_budget_exceeded()) return false;
   if (lastbestdepth == dep && pos[0].best.type == lastbeststep.type &&
       pos[0].best.c1 == lastbeststep.c1 && pos[0].best.c2 == lastbeststep.c2) return false;
   boolean ret = false;
@@ -2252,7 +2264,7 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
       Serial.print(" = " + String(tmp));
     }
     if (alpha >= beta) return alpha;
-    if (halt || (l < 3 && millis() - starttime > timelimith))  //
+    if (halt || (l < 3 && search_budget_exceeded()))  //
       return score;
   }
   if (score == -20000) {
@@ -2384,8 +2396,8 @@ boolean solve_step() {
   int ALPHA = -20000;
   int BETA = 20000;
   level = 2;
-  /* Long time controls used to skip straight to depth 4; honor search_max_level. */
-  if (timelimith > 300000 && search_max_level >= 4)
+  /* Long wall-clock controls used to skip to depth 4; skip when node-capped. */
+  if (nodelimith == 0 && timelimith > 300000 && search_max_level >= 4)
     level = 4;
   if (level > search_max_level)
     level = search_max_level;
@@ -2454,7 +2466,7 @@ boolean solve_step() {
       solved = 1;
       break;
     }
-    if (tim > timelimith || halt) break;
+    if (tim > timelimith || search_budget_exceeded()) break;
     if (pos[0].best.type == lastbeststep.type && pos[0].best.c1 == lastbeststep.c1 && pos[0].best.c2 == lastbeststep.c2) {
       samebest++;
     } else

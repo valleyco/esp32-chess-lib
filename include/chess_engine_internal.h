@@ -37,13 +37,18 @@ extern int game_ply;
 extern boolean game_w;
 extern short game_pole[64];
 extern unsigned long timelimith;
+/** Soft node budget; 0 = unlimited. */
+extern unsigned long nodelimith;
 extern boolean halt;
 extern int search_max_level;
 extern unsigned long count;
 extern int level;
 extern int lastbestdepth;
+extern int bestcount;
+extern step_t bestmove[];
 
 boolean fen(const char *ss);
+void epd(void);
 int fenout(int l, char *buf, size_t buflen);
 void generate_steps(int l);
 void movestep(int l, step_t &s);

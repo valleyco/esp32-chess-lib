@@ -93,6 +93,13 @@ int chess_legal_moves(chess_move_t *out, int max_out);
 bool chess_think_time(unsigned timeout_ms, chess_search_result_t *out);
 
 /**
+ * Iterative deepen until ~max_nodes (engine node counter), ignore wall clock.
+ * Applies best move. out may be NULL. Prefer this over think_time for
+ * host/CI strength checks (CPU-independent effort budget).
+ */
+bool chess_think_nodes(unsigned long max_nodes, chess_search_result_t *out);
+
+/**
  * Iterative deepen up to max_depth (engine levels), ignore wall clock.
  * Applies best move. out may be NULL. max_depth clamped to 2..20.
  */
@@ -100,6 +107,16 @@ bool chess_think_depth(int max_depth, chess_search_result_t *out);
 
 /** Same as chess_think_time(timeout_ms, NULL). */
 bool chess_think(unsigned timeout_ms);
+
+/**
+ * Parse "bm ..." from the string last passed to chess_set_fen (full EPD line).
+ * Call before timed think so the engine can early-exit on a matching best move.
+ * Returns number of accepted best-move candidates (0 if none / parse failed).
+ */
+int chess_epd_load_bm(void);
+
+/** True if (c1,c2,promo) matches a move loaded by chess_epd_load_bm. */
+bool chess_matches_epd_bm(int c1, int c2, int promo);
 
 /** Undo one half-move (one ply). False if ply==0. */
 bool chess_undo_ply(void);

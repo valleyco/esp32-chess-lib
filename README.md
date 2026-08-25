@@ -10,9 +10,17 @@ this tree adds `chess_api`, host tests, and fixed-depth benches.
 ## Quick start (host)
 
 ```bash
-make test    # API unit tests + golden fixed-depth bench
-make bench   # print depth/nodes/nps (no asserts)
+make test            # API unit tests + golden fixed-depth bench (required gate)
+make bench           # print depth/nodes/nps (no asserts)
+make bench-wac-smoke # optional: 5 WAC positions @ 30k nodes
+make bench-wac NODES=1200000 LIMIT=300   # optional ≈1 min ESP32 effort (@ ~20 kN/s)
+make bench-wac DEPTH=5 LIMIT=300         # optional fixed-depth WAC
 ```
+
+`make test` does **not** run WAC/Elo. Those are opt-in strength checks. Prefer
+**node** (or **depth**) budgets over wall-clock so scores are comparable across
+hosts; `--time` remains only for Hackster-style replay. Esp32 reference ~272/300
+@ 1 min/pos ≈ **1.2M nodes** at ~20 kN/s.
 
 Public header: [`include/chess_api.h`](include/chess_api.h).
 

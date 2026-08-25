@@ -309,8 +309,20 @@ extern "C" bool chess_think_time(unsigned timeout_ms, chess_search_result_t *out
 {
     EngineGuard g;
     ensure_engine_ready();
+    nodelimith = 0;
     timelimith = timeout_ms ? timeout_ms : 1;
     search_max_level = 20;
+    return run_search_and_apply(out);
+}
+
+extern "C" bool chess_think_nodes(unsigned long max_nodes, chess_search_result_t *out)
+{
+    EngineGuard g;
+    ensure_engine_ready();
+    nodelimith = max_nodes ? max_nodes : 1;
+    search_max_level = 20;
+    /* Huge wall limit so only the node budget stops iterative deepening. */
+    timelimith = 24UL * 60UL * 60UL * 1000UL;
     return run_search_and_apply(out);
 }
 
@@ -326,6 +338,7 @@ extern "C" bool chess_think_depth(int max_depth, chess_search_result_t *out)
     {
         max_depth = 20;
     }
+    nodelimith = 0;
     search_max_level = max_depth;
     /* Large limit so depth, not wall clock, stops the search. */
     timelimith = 24UL * 60UL * 60UL * 1000UL;
@@ -335,6 +348,45 @@ extern "C" bool chess_think_depth(int max_depth, chess_search_result_t *out)
 extern "C" bool chess_think(unsigned timeout_ms)
 {
     return chess_think_time(timeout_ms, nullptr);
+}
+
+extern "C" int chess_epd_load_bm(void)
+{
+    EngineGuard g;
+    ensure_engine_ready();
+    epd();
+    return bestcount;
+}
+
+extern "C" bool chess_matches_epd_bm(int c1, int c2, int promo)
+{
+    EngineGuard g;
+    ensure_engine_ready();
+    const int want_type = (promo != 0) ? promo_to_step_type(promo) : -1;
+    for (int i = 0; i < 5; i++)
+    {
+        if (bestmove[i].c1 < 0)
+        {
+            continue;
+        }
+        if (bestmove[i].c1 != c1 || bestmove[i].c2 != c2)
+        {
+            continue;
+        }
+        if (want_type >= 0)
+        {
+            if (bestmove[i].type == want_type)
+            {
+                return true;
+            }
+            continue;
+        }
+        if (bestmove[i].type < 4)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 static bool replay_to_ply(int target_ply)
