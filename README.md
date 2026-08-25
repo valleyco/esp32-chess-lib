@@ -39,10 +39,11 @@ CMakeLists.txt               # optional ESP-IDF component
 
 ## ESP-IDF
 
-Register this directory as a component (`EXTRA_COMPONENT_DIRS` or
-`components/chess` symlink). Firmware should call only `chess_api.h`.
+Register this directory as a component (`EXTRA_COMPONENT_DIRS` or as a
+firmware `components/chess` submodule). Firmware should call only `chess_api.h`.
 
 ## Status
 
-Consumed by [`../esp32-chess`](../esp32-chess) via `components/chess` symlink.
-Host tests/benches live here; optional WAC is opt-in (`make bench-wac`).
+Consumed by [`esp32-chess`](https://github.com/valleyco/esp32-chess) as git submodule
+`components/chess`. Host tests/benches live here; optional WAC is opt-in
+(`make bench-wac`).
