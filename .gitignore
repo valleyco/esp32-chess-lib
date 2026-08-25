@@ -2,6 +2,7 @@
 host/*.o
 host/test_chess_api
 host/bench_chess
+host/bench_wac
 
 # IDE / OS
 .vscode/
