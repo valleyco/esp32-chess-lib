@@ -44,5 +44,5 @@ Register this directory as a component (`EXTRA_COMPONENT_DIRS` or
 
 ## Status
 
-Initial copy from `esp32-chess` (in-tree `components/chess` + `host/chess`).
-The CYD app still vendors its own copy until we switch it to this repo.
+Consumed by [`../esp32-chess`](../esp32-chess) via `components/chess` symlink.
+Host tests/benches live here; optional WAC is opt-in (`make bench-wac`).
