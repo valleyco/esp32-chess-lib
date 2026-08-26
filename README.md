@@ -10,8 +10,9 @@ this tree adds `chess_api`, host tests, and fixed-depth benches.
 ## Quick start (host)
 
 ```bash
-make test                 # API + depth goldens + fast WAC must-pass (required)
-make test-wac-regression  # full WAC must-pass @ depth 5 (~2 min; exit 1 on regress)
+make test                 # API + depth goldens + honest fast WAC must-pass (-O2 default)
+make DEBUG=1 test         # same with -O0
+make test-wac-regression  # full honest WAC must-pass @ depth 5 (~2–4 min)
 make bench                # print depth/nodes/nps (no asserts)
 make bench-wac-smoke      # first 5 WAC @ 30k nodes
 make bench-wac NODES=1200000 LIMIT=300
@@ -21,8 +22,9 @@ make bench-wac DEPTH=5 LIMIT=300
 WAC positions are the public **Win At Chess** suite (same FENs as
 [Arasan `wacnew.epd`](https://github.com/jdart1/arasan-chess/blob/master/tests/wacnew.epd)),
 kept under [`host/epd/`](host/epd/). `make test` fails if any **must-pass** ID
-misses — update `host/epd/wac_must_pass_*.txt` only when deliberately accepting
-a strength tradeoff. Prefer **node** or **depth** budgets over wall-clock.
+misses under **full-depth** search (EPD early-exit disabled). Update
+`host/epd/wac_must_pass_*.txt` only when deliberately accepting a strength
+tradeoff. Prefer **node** or **depth** budgets over wall-clock.
 Esp32 reference ~272/300 @ 1 min/pos ≈ **1.2M nodes** at ~20 kN/s.
 
 Public header: [`include/chess_api.h`](include/chess_api.h).

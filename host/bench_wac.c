@@ -158,6 +158,7 @@ int main(int argc, char **argv)
     int kind_set = 0;
     const char *epd_path = NULL;
     const char *must_path = NULL;
+    int no_early_exit = -1; /* -1 = default: on for must-pass, off otherwise */
 
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--nodes") && i + 1 < argc) {
@@ -182,12 +183,18 @@ int main(int argc, char **argv)
             epd_path = argv[++i];
         } else if (!strcmp(argv[i], "--must-pass") && i + 1 < argc) {
             must_path = argv[++i];
+        } else if (!strcmp(argv[i], "--no-early-exit")) {
+            no_early_exit = 1;
+        } else if (!strcmp(argv[i], "--early-exit")) {
+            no_early_exit = 0;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
             fprintf(stderr,
                     "Usage: %s [--nodes N | --depth D | --time MS]\n"
                     "          [--limit N] [--from I] [--quiet]\n"
                     "          [--epd FILE] [--must-pass FILE]\n"
-                    "WAC suite (Arasan wacnew.epd FENs). --must-pass → exit 1 on miss.\n",
+                    "          [--no-early-exit | --early-exit]\n"
+                    "WAC suite (Arasan wacnew.epd). --must-pass → exit 1 on miss.\n"
+                    "Default: --no-early-exit when --must-pass is set (honest regress).\n",
                     argv[0]);
             return 0;
         } else {
@@ -196,6 +203,10 @@ int main(int argc, char **argv)
         }
     }
     (void)kind_set;
+
+    if (no_early_exit < 0) {
+        no_early_exit = must_path ? 1 : 0;
+    }
 
     const char *owned[MAX_EPD];
     int owned_n = 0;
@@ -270,6 +281,9 @@ int main(int argc, char **argv)
     if (epd_path) {
         printf(" epd=%s", epd_path);
     }
+    if (no_early_exit) {
+        printf(" no-early-exit");
+    }
     printf("\n");
 
     /* Build run list: must-pass ids, or sequential suite slice. */
@@ -313,6 +327,9 @@ int main(int argc, char **argv)
         if (bm_n <= 0) {
             fprintf(stderr, "FAIL %s: no bm parsed\n", id);
             return 1;
+        }
+        if (no_early_exit) {
+            chess_epd_clear_solve_hints();
         }
 
         chess_search_result_t r;

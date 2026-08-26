@@ -110,10 +110,17 @@ bool chess_think(unsigned timeout_ms);
 
 /**
  * Parse "bm ..." from the string last passed to chess_set_fen (full EPD line).
- * Call before timed think so the engine can early-exit on a matching best move.
+ * Fills match candidates for chess_matches_epd_bm. Also arms search early-exit
+ * hints unless chess_epd_clear_solve_hints() is called afterward.
  * Returns number of accepted best-move candidates (0 if none / parse failed).
  */
 int chess_epd_load_bm(void);
+
+/**
+ * Clear engine early-exit hints (bm still usable via chess_matches_epd_bm).
+ * Use for honest regression benches so search cannot stop early on a lucky match.
+ */
+void chess_epd_clear_solve_hints(void);
 
 /** True if (c1,c2,promo) matches a move loaded by chess_epd_load_bm. */
 bool chess_matches_epd_bm(int c1, int c2, int promo);

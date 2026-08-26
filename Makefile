@@ -1,6 +1,9 @@
-CC ?= gcc
-CXX ?= g++
+# Default host build is -O2 (speed). Use DEBUG=1 for -O0 (easier gdb).
+ifeq ($(DEBUG),1)
 CFLAGS ?= -O0 -g -Wall -Wextra -Werror
+else
+CFLAGS ?= -O2 -g -Wall -Wextra -Werror
+endif
 CXXFLAGS ?= $(CFLAGS) -std=c++17
 ENGINE_CXXFLAGS := $(CXXFLAGS) -Wno-parentheses -Wno-sign-compare -Wno-unused-parameter \
 	-Wno-unused-variable -Wno-type-limits -Wno-dangling-else -Wno-return-type -Wno-format
@@ -43,13 +46,14 @@ $(BENCH_BIN): host/bench_chess.c $(OBJS)
 $(WAC_BIN): host/bench_wac.c host/wac_positions.h $(OBJS)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ host/bench_wac.c $(OBJS) -pthread
 
-# API + depth goldens + fast WAC must-pass (Arasan/WAC — no invented positions).
+# API + depth goldens + honest fast WAC must-pass (no EPD early-exit).
+# Full floor: make test-wac-regression (~2–4 min).
 test: $(TEST_BIN) $(BENCH_BIN) $(WAC_BIN)
 	@echo "== test_chess_api =="
 	./$(TEST_BIN)
 	@echo "== bench_chess =="
 	./$(BENCH_BIN)
-	@echo "== wac must-pass fast (depth 5) =="
+	@echo "== wac must-pass fast (depth 5, no early-exit) =="
 	./$(WAC_BIN) --depth 5 --must-pass host/epd/wac_must_pass_fast.txt --epd host/epd/wac.epd --quiet
 
 bench: $(BENCH_BIN)
@@ -66,11 +70,10 @@ bench-wac: $(WAC_BIN)
 bench-wac-smoke: $(WAC_BIN)
 	./$(WAC_BIN) --nodes 30000 --limit 5 --from 0 --epd host/epd/wac.epd
 
-# Same gate as in `make test` (explicit target).
 test-wac-fast: $(WAC_BIN)
 	./$(WAC_BIN) --depth 5 --must-pass host/epd/wac_must_pass_fast.txt --epd host/epd/wac.epd
 
-# Full regression floor (~2 min): every currently-accepted depth-5 solve.
+# Full honest regression floor (no EPD early-exit).
 test-wac-regression: $(WAC_BIN)
 	./$(WAC_BIN) --depth 5 --must-pass host/epd/wac_must_pass_d5.txt --epd host/epd/wac.epd --quiet
 

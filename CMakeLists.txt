@@ -11,6 +11,7 @@ idf_component_register(
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE CHESS_ENGINE_LIBRARY)
 
+# Prefer speed on device; IDF Release is often -Os — force -O2 for the engine.
 target_compile_options(${COMPONENT_LIB} PRIVATE
-    "$<$<COMPILE_LANGUAGE:CXX>:-Wno-parentheses;-Wno-sign-compare;-Wno-unused-parameter;-Wno-unused-variable;-Wno-type-limits;-Wno-dangling-else;-Wno-return-type;-Wno-format>"
+    "$<$<COMPILE_LANGUAGE:CXX>:-O2;-Wno-parentheses;-Wno-sign-compare;-Wno-unused-parameter;-Wno-unused-variable;-Wno-type-limits;-Wno-dangling-else;-Wno-return-type;-Wno-format>"
 )

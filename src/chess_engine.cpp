@@ -1600,12 +1600,17 @@ static int passed_pawn_delta(void)
 
 int evaluate(int l) {  //
 
-  int pp = passed_pawn_delta();
-  /* In rookless/minor endgames, passers decide races (WAC.002 Rxb2 line). */
-  const int mat = pos[l].weight_w + pos[l].weight_b;
-  if (mat < 1600)
+  int pp = 0;
+  /* Passers matter in endgames (WAC.002); skip the 64-square scan in
+   * middlegames where root material set endspiel=false. */
+  if (endspiel)
   {
-    pp = (pp * 3) / 2;
+    pp = passed_pawn_delta();
+    const int mat = pos[l].weight_w + pos[l].weight_b;
+    if (mat < 1600)
+    {
+      pp = (pp * 3) / 2;
+    }
   }
   if (!stats) {
     if (pos[l].w)

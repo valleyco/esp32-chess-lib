@@ -8,6 +8,8 @@
 #endif
 
 static bool s_engine_ready = false;
+static step_t s_match_bm[5];
+static int s_match_n = 0;
 
 #ifdef ESP_PLATFORM
 static SemaphoreHandle_t s_mu;
@@ -359,7 +361,26 @@ extern "C" int chess_epd_load_bm(void)
     EngineGuard g;
     ensure_engine_ready();
     epd();
+    /* Snapshot for matching even if hints are cleared later. */
+    for (int i = 0; i < 5; i++)
+    {
+        s_match_bm[i] = bestmove[i];
+    }
+    s_match_n = bestcount;
     return bestcount;
+}
+
+extern "C" void chess_epd_clear_solve_hints(void)
+{
+    EngineGuard g;
+    ensure_engine_ready();
+    for (int i = 0; i < 5; i++)
+    {
+        bestmove[i].c1 = -1;
+        bestmove[i].c2 = -1;
+        bestmove[i].type = -1;
+    }
+    bestcount = 0;
 }
 
 extern "C" bool chess_matches_epd_bm(int c1, int c2, int promo)
@@ -367,25 +388,26 @@ extern "C" bool chess_matches_epd_bm(int c1, int c2, int promo)
     EngineGuard g;
     ensure_engine_ready();
     const int want_type = (promo != 0) ? promo_to_step_type(promo) : -1;
+    const step_t *table = (s_match_n > 0) ? s_match_bm : bestmove;
     for (int i = 0; i < 5; i++)
     {
-        if (bestmove[i].c1 < 0)
+        if (table[i].c1 < 0)
         {
             continue;
         }
-        if (bestmove[i].c1 != c1 || bestmove[i].c2 != c2)
+        if (table[i].c1 != c1 || table[i].c2 != c2)
         {
             continue;
         }
         if (want_type >= 0)
         {
-            if (bestmove[i].type == want_type)
+            if (table[i].type == want_type)
             {
                 return true;
             }
             continue;
         }
-        if (bestmove[i].type < 4)
+        if (table[i].type < 4)
         {
             return true;
         }
