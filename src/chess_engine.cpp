@@ -87,6 +87,201 @@ int lastbestdepth = 0;
 step_t lastbeststep;
 boolean halt = 0;
 
+/* ---- Minimal transposition table (ESP32 RAM budget) -------------------- */
+#ifndef CHESS_TT_ENTRIES
+#define CHESS_TT_ENTRIES 4096 /* power of 2; 4096 * 8 = 32 KiB */
+#endif
+#if (CHESS_TT_ENTRIES & (CHESS_TT_ENTRIES - 1)) != 0
+#error CHESS_TT_ENTRIES must be a power of 2
+#endif
+/** Soft ceiling for the TT array (host test asserts against this). */
+#ifndef CHESS_TT_BUDGET_BYTES
+#define CHESS_TT_BUDGET_BYTES (48 * 1024)
+#endif
+
+enum { TT_EXACT = 1, TT_LOWER = 2, TT_UPPER = 3 };
+
+typedef struct {
+  uint32_t key;
+  int16_t score;
+  uint8_t depth;
+  uint8_t flags;
+} tt_entry_t;
+
+static_assert(sizeof(tt_entry_t) == 8, "tt_entry_t must stay 8 bytes");
+static_assert(sizeof(tt_entry_t) * CHESS_TT_ENTRIES <= (size_t)CHESS_TT_BUDGET_BYTES,
+              "TT exceeds CHESS_TT_BUDGET_BYTES");
+
+static tt_entry_t tt_table[CHESS_TT_ENTRIES];
+static uint32_t zob_piece[13][64];
+static uint32_t zob_side;
+static uint32_t zob_castle[16];
+static uint32_t zob_ep[65]; /* 0 = none; 1..64 = square+1 */
+static int zob_inited = 0;
+
+static uint32_t zob_rnd(uint32_t *s)
+{
+  *s = *s * 1664525u + 1013904223u;
+  return *s;
+}
+
+static void tt_zob_init(void)
+{
+  if (zob_inited)
+  {
+    return;
+  }
+  uint32_t s = 0xC001D00Du;
+  for (int p = 0; p < 13; p++)
+  {
+    for (int sq = 0; sq < 64; sq++)
+    {
+      zob_piece[p][sq] = zob_rnd(&s);
+    }
+  }
+  zob_side = zob_rnd(&s);
+  for (int i = 0; i < 16; i++)
+  {
+    zob_castle[i] = zob_rnd(&s);
+  }
+  zob_ep[0] = 0;
+  for (int i = 1; i <= 64; i++)
+  {
+    zob_ep[i] = zob_rnd(&s);
+  }
+  zob_inited = 1;
+}
+
+static void tt_clear(void)
+{
+  tt_zob_init();
+  memset(tt_table, 0, sizeof(tt_table));
+}
+
+static uint32_t tt_hash(int l)
+{
+  uint32_t h = 0;
+  for (int i = 0; i < 64; i++)
+  {
+    const int p = pole[i];
+    if (p)
+    {
+      h ^= zob_piece[p + 6][i];
+    }
+  }
+  if (!pos[l].w)
+  {
+    h ^= zob_side;
+  }
+  const unsigned cr = (pos[l].wrk ? 1u : 0u) | (pos[l].wrq ? 2u : 0u) | (pos[l].brk ? 4u : 0u) |
+                      (pos[l].brq ? 8u : 0u);
+  h ^= zob_castle[cr];
+  if (pos[l].pp)
+  {
+    h ^= zob_ep[(unsigned)pos[l].pp + 1u];
+  }
+  return h ? h : 1u;
+}
+
+static int tt_score_to_store(int score, int ply)
+{
+  if (score > 9000)
+  {
+    return score + ply;
+  }
+  if (score < -9000)
+  {
+    return score - ply;
+  }
+  return score;
+}
+
+static int tt_score_from_store(int score, int ply)
+{
+  if (score > 9000)
+  {
+    return score - ply;
+  }
+  if (score < -9000)
+  {
+    return score + ply;
+  }
+  return score;
+}
+
+/** 1 if usable bound found. */
+static int tt_probe(uint32_t key, int depthleft, int ply, int alpha, int beta, int *out)
+{
+  tt_entry_t *e = &tt_table[key & (CHESS_TT_ENTRIES - 1)];
+  if (e->key != key || e->flags == 0 || e->depth < (uint8_t)depthleft)
+  {
+    return 0;
+  }
+  const int s = tt_score_from_store(e->score, ply);
+  if (e->flags == TT_EXACT)
+  {
+    *out = s;
+    return 1;
+  }
+  if (e->flags == TT_LOWER && s >= beta)
+  {
+    *out = s;
+    return 1;
+  }
+  if (e->flags == TT_UPPER && s <= alpha)
+  {
+    *out = s;
+    return 1;
+  }
+  return 0;
+}
+
+static void tt_store(uint32_t key, int depthleft, int ply, int score, int alpha0, int beta)
+{
+  tt_entry_t *e = &tt_table[key & (CHESS_TT_ENTRIES - 1)];
+  if (e->key == key && e->depth > (uint8_t)depthleft)
+  {
+    return;
+  }
+  uint8_t flags = TT_EXACT;
+  if (score <= alpha0)
+  {
+    flags = TT_UPPER;
+  }
+  else if (score >= beta)
+  {
+    flags = TT_LOWER;
+  }
+  int store = tt_score_to_store(score, ply);
+  if (store > 32767)
+  {
+    store = 32767;
+  }
+  if (store < -32768)
+  {
+    store = -32768;
+  }
+  e->key = key;
+  e->score = (int16_t)store;
+  e->depth = (uint8_t)(depthleft > 255 ? 255 : depthleft);
+  e->flags = flags;
+}
+
+extern "C" size_t chess_tt_bytes(void)
+{
+  return sizeof(tt_table);
+}
+
+extern "C" size_t chess_tt_budget_bytes(void)
+{
+  return (size_t)CHESS_TT_BUDGET_BYTES;
+}
+
+extern "C" unsigned chess_tt_entries(void)
+{
+  return (unsigned)CHESS_TT_ENTRIES;
+}
+
 step_t bufsteps[MAXSTEPS + 1];  //
 
 step_t game_steps[1000];  //
@@ -2277,6 +2472,15 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
     ;  //
     return quiescence(l, alpha, beta, fd);
   }
+  const int alpha0 = alpha;
+  uint32_t tt_key = 0;
+  if (!zero) {
+    tt_key = tt_hash(l);
+    int ttv = 0;
+    if (tt_probe(tt_key, depthleft, l, alpha, beta, &ttv)) {
+      return ttv;
+    }
+  }
   if (l > 0) generate_steps(l);
   if (l >= nulldepth && zero == 0 && depthleft > 2)  // 2
     if (!pos[l].check_on_table && pos[l - 1].steps[pos[l - 1].cur_step].f2 == 0) {
@@ -2293,11 +2497,21 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
       pos[l].steps[MAXSTEPS].f2 = 0;
       int tmpz = -alphaBeta(l + 1, -beta, -beta + 1, depthleft - 3);  // 3
       zero = 0;
-      if (tmpz >= beta) return beta;
+      if (tmpz >= beta) {
+        if (!zero) {
+          tt_store(tt_key, depthleft, l, tmpz, alpha0, beta);
+        }
+        return beta;
+      }
     }
   if (l > 4 && !zero && depthleft <= 2 && futility && !pos[l].check_on_table && pos[l - 1].steps[pos[l - 1].cur_step].f2 == 0) {  // futility pruning
     int weight = evaluate(l);
-    if (weight - 200 >= beta) return beta;
+    if (weight - 200 >= beta) {
+      if (!zero) {
+        tt_store(tt_key, depthleft, l, weight - 200, alpha0, beta);
+      }
+      return beta;
+    }
   }
   for (int i = 0; i < pos[l].n_steps; i++) {
     ext = 0;
@@ -2333,7 +2547,7 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
         Serial.print("  ");
         Serial.print(i + 1);
         Serial.print("/");
-        Serial.print(pos[0].n_steps);
+        Serial.print(pos[l].n_steps);
         // if (pos[0].steps[i].weight<-9000) { Serial.println(F(" checkmate")); continue; }
       } else if (TRACE > l) {
         Serial.println();
@@ -2369,7 +2583,12 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
     } else if (TRACE > l) {
       Serial.print(" = " + String(tmp));
     }
-    if (alpha >= beta) return alpha;
+    if (alpha >= beta) {
+      if (!zero) {
+        tt_store(tt_key, depthleft, l, alpha, alpha0, beta);
+      }
+      return alpha;
+    }
     if (halt || (l < 3 && search_budget_exceeded()))  //
       return score;
   }
@@ -2379,6 +2598,9 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
       pos[l - 1].steps[pos[l - 1].cur_step].check = 2;
     } else
       score = 0;
+  }
+  if (!zero) {
+    tt_store(tt_key, depthleft, l, score, alpha0, beta);
   }
   return score;
 }
@@ -2412,6 +2634,7 @@ boolean solve_step() {
   countall = 0;
   zero = 0;
   lazy = 0;
+  tt_clear();
   for (int i = 1; i < MAXDEPTH; i++) {
     if (i % 2)
       pos[i].w = !pos[0].w;

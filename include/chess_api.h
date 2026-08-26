@@ -149,6 +149,15 @@ bool chess_last_move(int *c1, int *c2);
 /** Mate / stalemate for the side to move. */
 chess_status_t chess_status(void);
 
+/**
+ * Transposition-table RAM: bytes used, soft budget, and entry count.
+ * Host tests assert chess_tt_bytes() <= chess_tt_budget_bytes() (default 32 KiB
+ * table vs 48 KiB budget). Override with -DCHESS_TT_ENTRIES=N (power of 2).
+ */
+size_t chess_tt_bytes(void);
+size_t chess_tt_budget_bytes(void);
+unsigned chess_tt_entries(void);
+
 #ifdef __cplusplus
 }
 #endif

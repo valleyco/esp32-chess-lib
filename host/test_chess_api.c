@@ -237,6 +237,17 @@ static void test_wac002_rxb2_depth6(void)
     ASSERT_EQ_INT(SQ_B2, r.c2);
 }
 
+static void test_tt_ram_budget(void)
+{
+    const size_t used = chess_tt_bytes();
+    const size_t budget = chess_tt_budget_bytes();
+    ASSERT_TRUE(used > 0);
+    ASSERT_TRUE(used <= budget);
+    ASSERT_TRUE(chess_tt_entries() >= 1024);
+    /* Default: 4096 * 8 == 32768 */
+    ASSERT_TRUE(used == (size_t)chess_tt_entries() * 8u || used >= (size_t)chess_tt_entries() * 8u);
+}
+
 int main(void)
 {
     test_start_position();
@@ -253,5 +264,6 @@ int main(void)
     test_think_depth_stable_nodes();
     test_try_move_rejects_into_check();
     test_wac002_rxb2_depth6();
+    test_tt_ram_budget();
     return test_report();
 }
