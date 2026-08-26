@@ -224,6 +224,19 @@ static void test_try_move_rejects_into_check(void)
     ASSERT_TRUE(chess_try_move(SQ_A1, SQ_A2, CHESS_PROMO_QUEEN_DEFAULT));
 }
 
+/* WAC.002: Rxb2 — plain FEN (no EPD bm early-exit). Depth 6 is in the
+ * practical ESP32 window; very deep search may prefer c4c3 instead. */
+static void test_wac002_rxb2_depth6(void)
+{
+    enum { SQ_B3 = 41, SQ_B2 = 49 };
+    chess_search_result_t r;
+    memset(&r, 0, sizeof(r));
+    ASSERT_TRUE(chess_set_fen("8/7p/5k2/5p2/p1p2P2/Pr1pPK2/1P1R3P/8 b - -"));
+    ASSERT_TRUE(chess_think_depth(6, &r));
+    ASSERT_EQ_INT(SQ_B3, r.c1);
+    ASSERT_EQ_INT(SQ_B2, r.c2);
+}
+
 int main(void)
 {
     test_start_position();
@@ -239,5 +252,6 @@ int main(void)
     test_think_depth_result();
     test_think_depth_stable_nodes();
     test_try_move_rejects_into_check();
+    test_wac002_rxb2_depth6();
     return test_report();
 }

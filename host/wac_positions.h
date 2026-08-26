@@ -1,4 +1,4 @@
-/* Auto-extracted Urusov WAC suite — optional strength bench only. */
+/* Win At Chess (Reinfeld) — FENs match Arasan tests/wacnew.epd / host/epd/wac.epd */
 #ifndef WAC_POSITIONS_H
 #define WAC_POSITIONS_H
 

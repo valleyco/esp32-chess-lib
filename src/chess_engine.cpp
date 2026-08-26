@@ -1514,18 +1514,109 @@ void sort_steps(int l) {  //
   }
 }
 //****************************
+/* White-minus-black passed-pawn bonus. Tuned for endgame races (e.g. WAC.002)
+ * where connected passers outweigh a rook trade. */
+static int passed_pawn_delta(void)
+{
+  /* Index = pawn rank for White, or (9 - rank) for Black. */
+  static const int bonus[9] = {0, 0, 15, 40, 80, 150, 300, 520, 0};
+  int delta = 0;
+  int w_files = 0;
+  int b_files = 0;
+
+  for (int i = 0; i < 64; i++)
+  {
+    const int f = pole[i];
+    if (f != fp && f != -fp)
+    {
+      continue;
+    }
+    const int col = column[i];
+    const int r = row[i];
+    int passed = 1;
+    if (f == fp)
+    {
+      for (int rr = r + 1; rr <= 8 && passed; rr++)
+      {
+        for (int cc = col - 1; cc <= col + 1; cc++)
+        {
+          if (cc < 1 || cc > 8)
+          {
+            continue;
+          }
+          if (pole[(8 - rr) * 8 + (cc - 1)] == -fp)
+          {
+            passed = 0;
+            break;
+          }
+        }
+      }
+      if (passed)
+      {
+        delta += bonus[r];
+        w_files |= 1 << col;
+      }
+    }
+    else
+    {
+      for (int rr = r - 1; rr >= 1 && passed; rr--)
+      {
+        for (int cc = col - 1; cc <= col + 1; cc++)
+        {
+          if (cc < 1 || cc > 8)
+          {
+            continue;
+          }
+          if (pole[(8 - rr) * 8 + (cc - 1)] == fp)
+          {
+            passed = 0;
+            break;
+          }
+        }
+      }
+      if (passed)
+      {
+        delta -= bonus[9 - r];
+        b_files |= 1 << col;
+      }
+    }
+  }
+
+  /* Connected passers (adjacent files) — WAC.002 c3+d3 chain. */
+  for (int col = 1; col <= 7; col++)
+  {
+    const int bit = (1 << col) | (1 << (col + 1));
+    if ((w_files & bit) == bit)
+    {
+      delta += 120;
+    }
+    if ((b_files & bit) == bit)
+    {
+      delta -= 120;
+    }
+  }
+  return delta;
+}
+
 int evaluate(int l) {  //
 
+  int pp = passed_pawn_delta();
+  /* In rookless/minor endgames, passers decide races (WAC.002 Rxb2 line). */
+  const int mat = pos[l].weight_w + pos[l].weight_b;
+  if (mat < 1600)
+  {
+    pp = (pp * 3) / 2;
+  }
   if (!stats) {
     if (pos[l].w)
-      return pos[l].weight_w - pos[l].weight_b;
+      return pos[l].weight_w - pos[l].weight_b + pp;
     else
-      return pos[l].weight_b - pos[l].weight_w;
+      return pos[l].weight_b - pos[l].weight_w - pp;
   } else {
     if (pos[l].w)
-      return 5000 * (pos[l].weight_w - pos[l].weight_b + pos[l].weight_s) / (pos[l].weight_w + pos[l].weight_b + 2000);
+      return 5000 * (pos[l].weight_w - pos[l].weight_b + pos[l].weight_s + pp) / (pos[l].weight_w + pos[l].weight_b + 2000);
     else
-      return 5000 * (pos[l].weight_b - pos[l].weight_w - pos[l].weight_s) / (pos[l].weight_w + pos[l].weight_b + 2000);
+      return 5000 * (pos[l].weight_b - pos[l].weight_w - pos[l].weight_s - pp) / (pos[l].weight_w + pos[l].weight_b + 2000);
   }
 }
 
@@ -2207,8 +2298,6 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
     ext = 0;
     if (l == 0) {
       depth = depthleft;
-      if (level < 7)
-        if (pos[0].steps[pos[0].cur_step].check) ext = 2;  //
     }
     movestep(l, pos[l].steps[i]);
     if (pos[l].w)
@@ -2219,6 +2308,18 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
       backstep(l, pos[l].steps[i]);
       continue;
     }  //  -
+    /* Extend checks so rook-check horizons (WAC.002) don't hide passer races. */
+    if (pos[l].w)
+    {
+      if (check_b())
+      {
+        ext = 1;
+      }
+    }
+    else if (check_w())
+    {
+      ext = 1;
+    }
     pos[l].cur_step = i;
     movepos(l, pos[l].steps[i]);
     if (TRACE > 0) {

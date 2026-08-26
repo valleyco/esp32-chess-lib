@@ -21,7 +21,7 @@ TIME_MS ?=
 LIMIT ?= 300
 FROM ?= 0
 
-.PHONY: all test bench bench-wac bench-wac-smoke clean
+.PHONY: all test bench bench-wac bench-wac-smoke test-wac-fast test-wac-regression clean
 
 all: test
 
@@ -43,26 +43,36 @@ $(BENCH_BIN): host/bench_chess.c $(OBJS)
 $(WAC_BIN): host/bench_wac.c host/wac_positions.h $(OBJS)
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ host/bench_wac.c $(OBJS) -pthread
 
-# Mandatory gate: unit tests + fixed-depth goldens only (no WAC).
-test: $(TEST_BIN) $(BENCH_BIN)
+# API + depth goldens + fast WAC must-pass (Arasan/WAC — no invented positions).
+test: $(TEST_BIN) $(BENCH_BIN) $(WAC_BIN)
 	@echo "== test_chess_api =="
 	./$(TEST_BIN)
 	@echo "== bench_chess =="
 	./$(BENCH_BIN)
+	@echo "== wac must-pass fast (depth 5) =="
+	./$(WAC_BIN) --depth 5 --must-pass host/epd/wac_must_pass_fast.txt --epd host/epd/wac.epd --quiet
 
 bench: $(BENCH_BIN)
 	./$(BENCH_BIN) --print-only
 
-# Optional strength suite — never required by `make test`.
+# Optional strength suite — full 300 or custom budget.
 bench-wac: $(WAC_BIN)
-	@args="--limit $(LIMIT) --from $(FROM)"; \
+	@args="--limit $(LIMIT) --from $(FROM) --epd host/epd/wac.epd"; \
 	if [ -n "$(TIME_MS)" ]; then args="$$args --time $(TIME_MS)"; \
 	elif [ -n "$(DEPTH)" ]; then args="$$args --depth $(DEPTH)"; \
 	else args="$$args --nodes $(NODES)"; fi; \
 	./$(WAC_BIN) $$args
 
 bench-wac-smoke: $(WAC_BIN)
-	./$(WAC_BIN) --nodes 30000 --limit 5 --from 0
+	./$(WAC_BIN) --nodes 30000 --limit 5 --from 0 --epd host/epd/wac.epd
+
+# Same gate as in `make test` (explicit target).
+test-wac-fast: $(WAC_BIN)
+	./$(WAC_BIN) --depth 5 --must-pass host/epd/wac_must_pass_fast.txt --epd host/epd/wac.epd
+
+# Full regression floor (~2 min): every currently-accepted depth-5 solve.
+test-wac-regression: $(WAC_BIN)
+	./$(WAC_BIN) --depth 5 --must-pass host/epd/wac_must_pass_d5.txt --epd host/epd/wac.epd --quiet
 
 clean:
 	$(RM) $(TEST_BIN) $(BENCH_BIN) $(WAC_BIN) $(OBJS)
