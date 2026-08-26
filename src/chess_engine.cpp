@@ -2002,22 +2002,30 @@ void generate_steps(int l) {
   }
   for (int i = 0; i < pos[l].n_steps; i++) {
     pos[l].steps[i].check = 0;
-    pos[l].steps[i].weight = abs(pos[l].steps[i].f2);
-    if (pos[l].steps[i].type > 3) pos[l].steps[i].weight += fig_weight[pos[l].steps[i].type - 2];
-    pos[l].steps[i].weight <<= 2;
-    if (l > 0) {                                                                                                      //
-      if (pos[l].best.c2 == pos[l].steps[i].c2 && pos[l].best.c1 == pos[l].steps[i].c1) pos[l].steps[i].weight += 5;  //
-      if (pos[l].steps[i].c2 == pos[l - 1].steps[pos[l - 1].cur_step].c2) pos[l].steps[i].weight += 8;                //
+    const int victim = abs(pos[l].steps[i].f2);
+    const int attacker = abs(pos[l].steps[i].f1);
+    int w = 0;
+    if (victim != 0) {
+      /* MVV-LVA: valuable victim first, cheaper attacker preferred.
+       * Stays well below TT hash-move boost (+10000). */
+      w = fig_weight[victim] - (fig_weight[attacker] / 10);
+      if (w < 1) {
+        w = 1; /* captures before quiet moves */
+      }
     }
-    // if (l<level) {
-    // if (action(pos[l].steps[i])) {
-    //   pos[l].steps[i].weight=1;
-    //   show_position();
-    //     Serial.println("="+str_step(pos[l].steps[i]));
-    //    delay(20000);
-    // }
-    //}
-
+    if (pos[l].steps[i].type > 3) {
+      w += fig_weight[pos[l].steps[i].type - 2];
+    }
+    w <<= 2;
+    if (l > 0) {
+      if (pos[l].best.c2 == pos[l].steps[i].c2 && pos[l].best.c1 == pos[l].steps[i].c1) {
+        w += 5;
+      }
+      if (pos[l].steps[i].c2 == pos[l - 1].steps[pos[l - 1].cur_step].c2) {
+        w += 8;
+      }
+    }
+    pos[l].steps[i].weight = (short)w;
   }  // i
      // Serial.println("TIME GENER="+String(micros()-sta));
   // show_steps(0);
