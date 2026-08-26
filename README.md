@@ -19,9 +19,9 @@ make bench-wac NODES=1200000 LIMIT=300
 make bench-wac DEPTH=5 LIMIT=300
 ```
 
-Host default is **`-O2`** (`DEBUG=1` for `-O0`). Search uses a **32 KiB** transposition table
-(4096×8-byte entries; soft budget 48 KiB via `chess_tt_budget_bytes()` / host assert).
-Override size with `-DCHESS_TT_ENTRIES=<power-of-2>`.
+Host default is **`-O2`** (`DEBUG=1` for `-O0`). Search uses a **32 KiB-class**
+transposition table (4096 entries with hash-move; soft budget 48 KiB via
+`chess_tt_budget_bytes()` / host assert). Override with `-DCHESS_TT_ENTRIES=<power-of-2>`.
 
 WAC positions are the public **Win At Chess** suite (same FENs as
 [Arasan `wacnew.epd`](https://github.com/jdart1/arasan-chess/blob/master/tests/wacnew.epd)),

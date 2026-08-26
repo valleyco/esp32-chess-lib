@@ -106,9 +106,11 @@ typedef struct {
   int16_t score;
   uint8_t depth;
   uint8_t flags;
+  uint8_t c1; /* 0xFF = no move */
+  uint8_t c2;
 } tt_entry_t;
 
-static_assert(sizeof(tt_entry_t) == 8, "tt_entry_t must stay 8 bytes");
+static_assert(sizeof(tt_entry_t) <= 12, "tt_entry_t too large");
 static_assert(sizeof(tt_entry_t) * CHESS_TT_ENTRIES <= (size_t)CHESS_TT_BUDGET_BYTES,
               "TT exceeds CHESS_TT_BUDGET_BYTES");
 
@@ -209,11 +211,23 @@ static int tt_score_from_store(int score, int ply)
   return score;
 }
 
-/** 1 if usable bound found. */
-static int tt_probe(uint32_t key, int depthleft, int ply, int alpha, int beta, int *out)
+/** 1 if usable bound found. Fills mc1/mc2 when a hash move exists (-1 if none). */
+static int tt_probe(uint32_t key, int depthleft, int ply, int alpha, int beta, int *out, int *mc1,
+                    int *mc2)
 {
+  *mc1 = -1;
+  *mc2 = -1;
   tt_entry_t *e = &tt_table[key & (CHESS_TT_ENTRIES - 1)];
-  if (e->key != key || e->flags == 0 || e->depth < (uint8_t)depthleft)
+  if (e->key != key || e->flags == 0)
+  {
+    return 0;
+  }
+  if (e->c1 != 0xFF)
+  {
+    *mc1 = (int)e->c1;
+    *mc2 = (int)e->c2;
+  }
+  if (e->depth < (uint8_t)depthleft)
   {
     return 0;
   }
@@ -236,11 +250,18 @@ static int tt_probe(uint32_t key, int depthleft, int ply, int alpha, int beta, i
   return 0;
 }
 
-static void tt_store(uint32_t key, int depthleft, int ply, int score, int alpha0, int beta)
+static void tt_store(uint32_t key, int depthleft, int ply, int score, int alpha0, int beta, int c1,
+                     int c2)
 {
   tt_entry_t *e = &tt_table[key & (CHESS_TT_ENTRIES - 1)];
   if (e->key == key && e->depth > (uint8_t)depthleft)
   {
+    /* Keep deeper entry; still refresh move if we have one. */
+    if (c1 >= 0 && c1 < 64 && c2 >= 0 && c2 < 64)
+    {
+      e->c1 = (uint8_t)c1;
+      e->c2 = (uint8_t)c2;
+    }
     return;
   }
   uint8_t flags = TT_EXACT;
@@ -265,6 +286,39 @@ static void tt_store(uint32_t key, int depthleft, int ply, int score, int alpha0
   e->score = (int16_t)store;
   e->depth = (uint8_t)(depthleft > 255 ? 255 : depthleft);
   e->flags = flags;
+  if (c1 >= 0 && c1 < 64 && c2 >= 0 && c2 < 64)
+  {
+    e->c1 = (uint8_t)c1;
+    e->c2 = (uint8_t)c2;
+  }
+  else
+  {
+    e->c1 = 0xFF;
+    e->c2 = 0xFF;
+  }
+}
+
+void sort_steps(int l);
+
+/** Prefer TT move in the already-generated move list. */
+static void tt_order_hash_move(int l, int c1, int c2)
+{
+  if (c1 < 0 || c2 < 0 || pos[l].n_steps <= 0)
+  {
+    return;
+  }
+  for (int i = 0; i < pos[l].n_steps; i++)
+  {
+    if (pos[l].steps[i].c1 == c1 && pos[l].steps[i].c2 == c2)
+    {
+      pos[l].steps[i].weight += 10000;
+      if (i > 0)
+      {
+        sort_steps(l);
+      }
+      return;
+    }
+  }
 }
 
 extern "C" size_t chess_tt_bytes(void)
@@ -2474,14 +2528,18 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
   }
   const int alpha0 = alpha;
   uint32_t tt_key = 0;
+  int hash_c1 = -1, hash_c2 = -1;
   if (!zero) {
     tt_key = tt_hash(l);
     int ttv = 0;
-    if (tt_probe(tt_key, depthleft, l, alpha, beta, &ttv)) {
+    if (tt_probe(tt_key, depthleft, l, alpha, beta, &ttv, &hash_c1, &hash_c2)) {
       return ttv;
     }
   }
   if (l > 0) generate_steps(l);
+  if (!zero) {
+    tt_order_hash_move(l, hash_c1, hash_c2);
+  }
   if (l >= nulldepth && zero == 0 && depthleft > 2)  // 2
     if (!pos[l].check_on_table && pos[l - 1].steps[pos[l - 1].cur_step].f2 == 0) {
       zero = 1;
@@ -2498,8 +2556,8 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
       int tmpz = -alphaBeta(l + 1, -beta, -beta + 1, depthleft - 3);  // 3
       zero = 0;
       if (tmpz >= beta) {
-        if (!zero) {
-          tt_store(tt_key, depthleft, l, tmpz, alpha0, beta);
+        if (tt_key) {
+          tt_store(tt_key, depthleft, l, tmpz, alpha0, beta, -1, -1);
         }
         return beta;
       }
@@ -2507,8 +2565,8 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
   if (l > 4 && !zero && depthleft <= 2 && futility && !pos[l].check_on_table && pos[l - 1].steps[pos[l - 1].cur_step].f2 == 0) {  // futility pruning
     int weight = evaluate(l);
     if (weight - 200 >= beta) {
-      if (!zero) {
-        tt_store(tt_key, depthleft, l, weight - 200, alpha0, beta);
+      if (tt_key) {
+        tt_store(tt_key, depthleft, l, weight - 200, alpha0, beta, -1, -1);
       }
       return beta;
     }
@@ -2585,7 +2643,7 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
     }
     if (alpha >= beta) {
       if (!zero) {
-        tt_store(tt_key, depthleft, l, alpha, alpha0, beta);
+        tt_store(tt_key, depthleft, l, alpha, alpha0, beta, pos[l].best.c1, pos[l].best.c2);
       }
       return alpha;
     }
@@ -2600,7 +2658,9 @@ int alphaBeta(int l, int alpha, int beta, int depthleft) {
       score = 0;
   }
   if (!zero) {
-    tt_store(tt_key, depthleft, l, score, alpha0, beta);
+    const int mc1 = (pos[l].best.c1 >= 0) ? pos[l].best.c1 : -1;
+    const int mc2 = (pos[l].best.c1 >= 0) ? pos[l].best.c2 : -1;
+    tt_store(tt_key, depthleft, l, score, alpha0, beta, mc1, mc2);
   }
   return score;
 }

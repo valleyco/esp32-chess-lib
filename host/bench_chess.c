@@ -45,7 +45,7 @@ static const bench_case_t k_cases[] = {
         .depth = 3,
         .expect_c1 = 57, /* b1 */
         .expect_c2 = 42, /* c3 */
-        .expect_nodes = 626,
+        .expect_nodes = 607,
         .expect_depth = 3,
     },
     {
@@ -54,7 +54,7 @@ static const bench_case_t k_cases[] = {
         .depth = 3,
         .expect_c1 = 6,  /* g8 */
         .expect_c2 = 21, /* f6 */
-        .expect_nodes = 759,
+        .expect_nodes = 706,
         .expect_depth = 3,
     },
     {
@@ -63,7 +63,7 @@ static const bench_case_t k_cases[] = {
         .depth = 3,
         .expect_c1 = 52, /* e2 */
         .expect_c2 = 16, /* a6 */
-        .expect_nodes = 14248,
+        .expect_nodes = 13851,
         .expect_depth = 3,
     },
 };

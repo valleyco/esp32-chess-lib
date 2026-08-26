@@ -244,8 +244,9 @@ static void test_tt_ram_budget(void)
     ASSERT_TRUE(used > 0);
     ASSERT_TRUE(used <= budget);
     ASSERT_TRUE(chess_tt_entries() >= 1024);
-    /* Default: 4096 * 8 == 32768 */
-    ASSERT_TRUE(used == (size_t)chess_tt_entries() * 8u || used >= (size_t)chess_tt_entries() * 8u);
+    /* Entries carry a hash move; expect ~8–12 bytes each. */
+    ASSERT_TRUE(used >= (size_t)chess_tt_entries() * 8u);
+    ASSERT_TRUE(used <= (size_t)chess_tt_entries() * 16u);
 }
 
 int main(void)
