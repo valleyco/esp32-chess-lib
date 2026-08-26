@@ -198,6 +198,32 @@ static void test_think_depth_stable_nodes(void)
     ASSERT_EQ_INT(a.depth, b.depth);
 }
 
+/* White Ka1, Black Rh1: Kb1 walks into check; Ka2 is legal. */
+static void test_try_move_rejects_into_check(void)
+{
+    enum { SQ_A1 = 56, SQ_B1 = 57, SQ_A2 = 48 };
+    ASSERT_TRUE(chess_set_fen("k7/8/8/8/8/8/8/K6r w - -"));
+    ASSERT_TRUE(!chess_try_move(SQ_A1, SQ_B1, CHESS_PROMO_QUEEN_DEFAULT));
+    ASSERT_EQ_INT(6, chess_get_square(SQ_A1));
+    ASSERT_EQ_INT(1, chess_side_to_move());
+
+    chess_move_t moves[32];
+    const int n = chess_legal_moves(moves, 32);
+    int has_b1 = 0;
+    int has_a2 = 0;
+    for (int i = 0; i < n; i++) {
+        if (moves[i].c1 == SQ_A1 && moves[i].c2 == SQ_B1) {
+            has_b1 = 1;
+        }
+        if (moves[i].c1 == SQ_A1 && moves[i].c2 == SQ_A2) {
+            has_a2 = 1;
+        }
+    }
+    ASSERT_EQ_INT(0, has_b1);
+    ASSERT_EQ_INT(1, has_a2);
+    ASSERT_TRUE(chess_try_move(SQ_A1, SQ_A2, CHESS_PROMO_QUEEN_DEFAULT));
+}
+
 int main(void)
 {
     test_start_position();
@@ -212,5 +238,6 @@ int main(void)
     test_legal_moves_start();
     test_think_depth_result();
     test_think_depth_stable_nodes();
+    test_try_move_rejects_into_check();
     return test_report();
 }

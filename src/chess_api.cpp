@@ -106,12 +106,20 @@ static bool apply_step(const step_t &step)
     return true;
 }
 
+static bool step_leaves_own_king_safe(step_t &s)
+{
+    movestep(0, s);
+    const int check = pos[0].w ? check_w() : check_b();
+    backstep(0, s);
+    return !check;
+}
+
 static bool find_and_apply_move(int c1, int c2, int want_type, bool require_type)
 {
     generate_steps(0);
     for (int i = 0; i < pos[0].n_steps; i++)
     {
-        const step_t &s = pos[0].steps[i];
+        step_t s = pos[0].steps[i];
         if (s.c1 != c1 || s.c2 != c2)
         {
             continue;
@@ -124,18 +132,14 @@ static bool find_and_apply_move(int c1, int c2, int want_type, bool require_type
         {
             continue;
         }
+        if (!step_leaves_own_king_safe(s))
+        {
+            continue;
+        }
         pos[0].cur_step = i;
         return apply_step(s);
     }
     return false;
-}
-
-static bool step_leaves_own_king_safe(step_t &s)
-{
-    movestep(0, s);
-    const int check = pos[0].w ? check_w() : check_b();
-    backstep(0, s);
-    return !check;
 }
 
 static bool run_search_and_apply(chess_search_result_t *out)
@@ -219,12 +223,12 @@ extern "C" bool chess_try_move(int c1, int c2, int promo)
     int promotion_candidates = 0;
     for (int i = 0; i < pos[0].n_steps; i++)
     {
-        const step_t &s = pos[0].steps[i];
+        step_t s = pos[0].steps[i];
         if (s.c1 != c1 || s.c2 != c2)
         {
             continue;
         }
-        if (s.type >= 4)
+        if (s.type >= 4 && step_leaves_own_king_safe(s))
         {
             promotion_candidates++;
         }
@@ -246,8 +250,8 @@ extern "C" bool chess_is_promotion_move(int c1, int c2)
     generate_steps(0);
     for (int i = 0; i < pos[0].n_steps; i++)
     {
-        const step_t &s = pos[0].steps[i];
-        if (s.c1 == c1 && s.c2 == c2 && s.type >= 4)
+        step_t s = pos[0].steps[i];
+        if (s.c1 == c1 && s.c2 == c2 && s.type >= 4 && step_leaves_own_king_safe(s))
         {
             return true;
         }
