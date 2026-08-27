@@ -13,3 +13,4 @@ make test                 # API + benches + fast WAC must-pass
 - Preserve Sergey Urusov credit in `src/chess_engine.cpp`.
 - Prefer node/depth budgets over wall-clock in tests.
 - Full strength floor: `make test-wac-regression` (slow; not required for every PR).
+- Optional depth-6 extras: `make test-wac-regression-d6`.

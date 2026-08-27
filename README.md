@@ -20,6 +20,7 @@ cd esp32-chess-lib
 make test                 # API + depth goldens + honest fast WAC must-pass
 make DEBUG=1 test         # -O0
 make test-wac-regression  # full honest WAC must-pass @ depth 5 (~2–4 min)
+make test-wac-regression-d6  # d5-miss extras that clear @ depth 6 (~20–40s)
 make bench                # depth/nodes/nps
 make bench-wac-smoke      # first 5 WAC @ 30k nodes
 ```

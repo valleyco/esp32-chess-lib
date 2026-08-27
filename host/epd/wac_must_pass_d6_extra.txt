@@ -1,0 +1,17 @@
+# Honest depth-6 extras: positions that miss at depth 5 but pass at depth 6.
+# Keep out of wac_must_pass_d5.txt until stable at d5.
+# Suite: wac.epd
+033
+049
+055
+080
+120
+178
+180
+190
+195
+204
+224
+250
+272
+296

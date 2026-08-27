@@ -5,6 +5,8 @@
   (Arasan engine is MIT; positions widely used for engine testing). Also mirrored
   in `host/wac_positions.h` for the embedded default.
 - `wac_must_pass_d5.txt` — honest depth-5 floor (`make test-wac-regression`; no EPD early-exit).
+- `wac_must_pass_d6_extra.txt` — positions that miss at depth 5 but pass at depth 6
+  (`make test-wac-regression-d6`).
 - `wac_must_pass_fast.txt` — cheaper honest subset for `make test`.
 
 Must-pass benches default to `--no-early-exit` so a lucky low-depth `bm` hit
@@ -13,3 +15,4 @@ a strength tradeoff. Do not invent positions; add further public EPD suites here
 
 Depth-5 odd/even instability: WAC.033 finds `bm` at depths 3 and 6+ but not 4–5;
 it is kept out of `wac_must_pass_d5.txt` until search is more stable there.
+It is included in `wac_must_pass_d6_extra.txt` (stable at depth 6).

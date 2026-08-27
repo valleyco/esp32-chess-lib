@@ -24,7 +24,7 @@ TIME_MS ?=
 LIMIT ?= 300
 FROM ?= 0
 
-.PHONY: all test bench bench-wac bench-wac-smoke test-wac-fast test-wac-regression clean
+.PHONY: all test bench bench-wac bench-wac-smoke test-wac-fast test-wac-regression test-wac-regression-d6 clean
 
 all: test
 
@@ -76,6 +76,10 @@ test-wac-fast: $(WAC_BIN)
 # Full honest regression floor (no EPD early-exit).
 test-wac-regression: $(WAC_BIN)
 	./$(WAC_BIN) --depth 5 --must-pass host/epd/wac_must_pass_d5.txt --epd host/epd/wac.epd --quiet
+
+# Depth-6 extras: d5 misses that clear at honest depth 6 (~20–40s).
+test-wac-regression-d6: $(WAC_BIN)
+	./$(WAC_BIN) --depth 6 --must-pass host/epd/wac_must_pass_d6_extra.txt --epd host/epd/wac.epd --quiet
 
 clean:
 	$(RM) $(TEST_BIN) $(BENCH_BIN) $(WAC_BIN) $(OBJS)
