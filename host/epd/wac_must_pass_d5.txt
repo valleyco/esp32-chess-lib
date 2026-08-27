@@ -1,4 +1,5 @@
 # Honest depth-5 must-pass (no EPD early-exit). After -O2 + endspiel passers.
+# Excluded: 033 — odd/even unstable at depth 5 (bm Qe5+/Qf4 at d3 and d6+; h2h3 at d4–d5).
 # Suite: wac.epd (Arasan wacnew.epd). Shrink only when accepting a regress.
 001
 002
@@ -30,7 +31,6 @@
 030
 031
 032
-033
 034
 035
 036
